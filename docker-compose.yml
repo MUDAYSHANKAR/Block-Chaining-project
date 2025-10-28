@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  # Hardhat Local Node
+  hardhat-node:
+    image: node:18-alpine
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: npx hardhat node
+    ports:
+      - "8545:8545"
+    networks:
+      - cosmos-ai-sage
+
+  # Backend API
+  api:
+    build:
+      context: .
+      dockerfile: deployment/docker/Dockerfile.api
+    ports:
+      - "3001:3001"
+    environment:
+      - RPC_URL=http://hardhat-node:8545
+      - PORT=3001
+    depends_on:
+      - hardhat-node
+    networks:
+      - cosmos-ai-sage
+
+  # Frontend (RemixAI)
+  frontend:
+    build:
+      context: .
+      dockerfile: deployment/docker/Dockerfile.frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://api:3001
+    depends_on:
+      - api
+    networks:
+      - cosmos-ai-sage
+
+  # PostgreSQL (Optional - for analytics)
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: cosmos_ai_sage
+      POSTGRES_USER: cosmos
+      POSTGRES_PASSWORD: sage123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - cosmos-ai-sage
+
+networks:
+  cosmos-ai-sage:
+    driver: bridge
+
+volumes:
+  postgres-data:
